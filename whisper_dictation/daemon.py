@@ -12,6 +12,11 @@ import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Silence the "process forked after parallelism has already been used" warning.
+# Set before any heavy import that might initialise HF tokenizers; we fork
+# (subprocess.run) on every transcription to type the result.
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
 from .text_output import type_text
 
 LOG_FILE = "/tmp/whisper-dictation-daemon.log"

@@ -1,16 +1,18 @@
-"""Text typing via wtype with accelerated paste for known apps."""
+"""Text typing: wtype (Linux/Wayland) or pbcopy+osascript (macOS)."""
 
 import json
 import logging
 import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
 log = logging.getLogger(__name__)
 
 CONFIG_PATH = Path.home() / ".config" / "whisper-dictation" / "config.toml"
+IS_MACOS = sys.platform == "darwin"
 
-# Supported paste methods -> wtype args
+# Supported paste methods -> wtype args (Linux/Wayland)
 PASTE_WTYPE_ARGS = {
     "C-v": ["-M", "ctrl", "v", "-m", "ctrl"],
     "C-S-v": ["-M", "ctrl", "-M", "shift", "v", "-m", "shift", "-m", "ctrl"],
@@ -32,6 +34,8 @@ def load_paste_methods() -> dict[str, str]:
 
 def get_focused_app_id() -> str | None:
     """Get the app_id of the currently focused window in Sway."""
+    if IS_MACOS:
+        return None
     try:
         result = subprocess.run(
             ["swaymsg", "-t", "get_tree"],
@@ -53,8 +57,24 @@ def get_focused_app_id() -> str | None:
         return None
 
 
-def type_text(text: str):
-    """Type text using clipboard paste for known apps, fallback to wtype."""
+def _type_text_macos(text: str):
+    """macOS: copy to clipboard, paste via Cmd+V, restore previous clipboard."""
+    old_clipboard = subprocess.run(["pbpaste"], capture_output=True).stdout
+    subprocess.run(["pbcopy"], input=text.encode(), check=True)
+    subprocess.run(
+        [
+            "osascript",
+            "-e",
+            'tell application "System Events" to keystroke "v" using command down',
+        ],
+        check=False,
+    )
+    subprocess.run(["pbcopy"], input=old_clipboard, check=True)
+    log.info(f"Pasted {len(text)} chars (macOS)")
+
+
+def _type_text_linux(text: str):
+    """Linux/Wayland: wtype directly, or wl-copy + paste keychord for known apps."""
     app_id = get_focused_app_id()
     paste_methods = load_paste_methods()
     method = paste_methods.get(app_id) if app_id else None
@@ -72,3 +92,11 @@ def type_text(text: str):
     else:
         subprocess.run(["wtype", "--", text], check=False)
         log.info(f"Typed {len(text)} chars ({app_id or 'unknown'})")
+
+
+def type_text(text: str):
+    """Type text using the right primitive for the current OS."""
+    if IS_MACOS:
+        _type_text_macos(text)
+    else:
+        _type_text_linux(text)

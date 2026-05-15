@@ -1,17 +1,33 @@
 # Voice Typing
 
-Whisper-based voice dictation for Linux/Wayland.
+Whisper-based voice dictation for Linux/Wayland and macOS.
 
-## Install
+## Install (Linux/Sway/Wayland)
 
 $ sudo pacman -S wtype
 $ uv tool install .
 
-## Usage
-
 Bind `whisper-dictation-toggle` to a key in your Sway config:
 
     bindsym XF86Favorites exec whisper-dictation-toggle
+
+## Install (macOS)
+
+$ uv tool install .
+
+On first run macOS prompts for Microphone access (allow it) and for
+permission to control "System Events" so the daemon can paste typed
+text (allow it). If keystrokes don't appear, open
+**System Settings → Privacy & Security → Accessibility** and enable
+the daemon binary at `~/.local/bin/whisper-dictation-daemon`.
+
+Bind a hotkey via Hammerspoon (`~/.hammerspoon/init.lua`):
+
+    hs.hotkey.bind({"cmd", "alt"}, "space", function()
+        hs.execute(os.getenv("HOME") .. "/.local/bin/whisper-dictation-toggle")
+    end)
+
+## Usage
 
 - First press: loads model (yellow status), then starts recording (red status)
 - Second press: stops recording, transcribes, types result
